@@ -80,9 +80,15 @@ int main(int argc, char *argv[]) {
     double times[WINDOW_SIZE];
     int count = 0;
     
-    // PERFORMANS METRIKLERI ICIN DEGISKENLER
-    int total_sweeping_seconds = 0;
-    int total_sweeping_steps = 0;
+    // PERFORMANS METRIKLERI
+    int total_seconds = 0;
+    int waiting_seconds = 0;
+    int working_seconds = 0;
+    int sweeping_seconds = 0;
+
+    int total_steps = 0;
+    int sweeping_steps = 0;
+    int swing_count = 0;
 
     printf("time,state\n");
 
@@ -136,33 +142,57 @@ int main(int argc, char *argv[]) {
                 }
             }
             
-            // 1. GERCEK SUPURME SURESI HESAPLAMA
-            // Eger state 2 veya 3 ise, o 2 saniyelik pencerede supurme yapilmistir.
-            if (state == 2 || state == 3) {
-                total_sweeping_seconds += 2; // Pencere boyutu 2 saniye
+            // --- SURE HESAPLAMALARI ---
+            total_seconds += 2;
+            if (state == 0) {
+                waiting_seconds += 2;
+            } else {
+                working_seconds += 2;
             }
             
-            // 3. GERCEK TEMIZLIK MESAFESI HESAPLAMA (Adim sayimi)
-            // Sadece Yürüme & Süpürme durumundaysa (state == 3) adimlari sayiyoruz.
-            if (state == 3) {
-                // Pencere icindeki ivme ortalamasi
+            if (state == 2 || state == 3) {
+                sweeping_seconds += 2;
+            }
+            
+            // --- MESAFE HESAPLAMALARI (ADIM SAYIMI) ---
+            if (state == 1 || state == 3) {
                 double mean_y = 0;
                 for(int i=0; i<WINDOW_SIZE; i++) mean_y += acc_y[i];
                 mean_y /= WINDOW_SIZE;
                 
-                // Basit Peak Detection (Tepe Noktasi Bulma)
+                int steps_in_window = 0;
                 for(int i = 1; i < WINDOW_SIZE - 1; i++) {
                     if (acc_y[i] > acc_y[i-1] && acc_y[i] > acc_y[i+1]) {
-                        // Tepe noktasi ortalamadan belirgin sekilde (ornek: 0.5) yuksekse, adim atilmistir
                         if (acc_y[i] > mean_y + 0.5) {
-                            total_sweeping_steps++;
-                            i += 20; // 100Hz'de ayni adimi tekrar saymamak icin ~0.2 saniye atla
+                            steps_in_window++;
+                            i += 20; 
+                        }
+                    }
+                }
+                total_steps += steps_in_window;
+                if (state == 3) {
+                    sweeping_steps += steps_in_window;
+                }
+            }
+            
+            // --- SUPURME HAREKETI SAYISI (SALINIM/FIRCA DARBESI) ---
+            if (state == 2 || state == 3) {
+                double mean_gx = 0;
+                for(int i=0; i<WINDOW_SIZE; i++) mean_gx += gyr_x[i];
+                mean_gx /= WINDOW_SIZE;
+                
+                for(int i = 1; i < WINDOW_SIZE - 1; i++) {
+                    // Pozitif pikleri sayarak tam turlari buluyoruz
+                    if (gyr_x[i] > gyr_x[i-1] && gyr_x[i] > gyr_x[i+1]) {
+                        if (gyr_x[i] > mean_gx + 1.5) { // 1.5 rad/s esik degeri
+                            swing_count++;
+                            i += 30; // 100Hz'de ayni piki 0.3 sn icinde tekrar sayma
                         }
                     }
                 }
             }
             
-            // CSV Ciktisi (Grafikler icin)
+            // CSV Ciktisi
             for (int i = 0; i < WINDOW_SIZE; i++) {
                 printf("%f,%d\n", times[i], state);
             }
@@ -170,13 +200,20 @@ int main(int argc, char *argv[]) {
         }
     }
     
-    // Dosya okumasi bittikten sonra, istatistikleri terminale yazdir (stderr kullanarak, ana CSV ciktisini bozmamak icin)
-    double distance = total_sweeping_steps * 0.7; // Ortalama bir adim boyu 0.7 metre kabul edilirse
+    // PERFORMANS RAPORU YAZDIRMA
+    double total_distance = total_steps * 0.7; // Ortalama 0.7m adim
+    double cleaning_distance = sweeping_steps * 0.7;
+
     fprintf(stderr, "===============================================\n");
-    fprintf(stderr, "VERI SETI ANALIZ RAPORU (%s)\n", argv[1]);
+    fprintf(stderr, "   GUNLUK / HAFTALIK PERFORMANS RAPORU\n");
+    fprintf(stderr, "===============================================\n");
+    fprintf(stderr, "1. Toplam Kat Edilen Mesafe : %.2f metre\n", total_distance);
+    fprintf(stderr, "2. Gercek Temizlik Mesafesi : %.2f metre\n", cleaning_distance);
+    fprintf(stderr, "3. Calisma (Aktif) Suresi   : %d saniye\n", working_seconds);
+    fprintf(stderr, "4. Bekleme (Bosta) Suresi   : %d saniye\n", waiting_seconds);
+    fprintf(stderr, "5. Toplam Supurme Hareketi  : %d salinim\n", swing_count);
     fprintf(stderr, "-----------------------------------------------\n");
-    fprintf(stderr, "1. Toplam Aktif Supurme Suresi : %d saniye\n", total_sweeping_seconds);
-    fprintf(stderr, "3. Gercek Temizlik Mesafesi    : %.2f metre (%d adim)\n", distance, total_sweeping_steps);
+    fprintf(stderr, "* Analiz Edilen Toplam Sure : %d saniye\n", total_seconds);
     fprintf(stderr, "===============================================\n\n");
 
     fclose(acc_file);
