@@ -1,0 +1,11 @@
+# Ignore data and media files
+*.csv
+*.png
+*.mp4
+
+# Ignore compiled binaries
+detector
+
+# Ignore python cache
+__pycache__/
+*.pyc
