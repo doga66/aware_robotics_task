@@ -44,9 +44,15 @@ double calculate_variance(double data[], int n) {
 }
 
 int main(int argc, char *argv[]) {
-    if (argc != 3) {
-        fprintf(stderr, "Usage: %s <Accelerometer.csv> <Gyroscope.csv>\n", argv[0]);
+    if (argc < 3 || argc > 4) {
+        fprintf(stderr, "Usage: %s <Accelerometer.csv> <Gyroscope.csv> [--use-kalman]\n", argv[0]);
         return 1;
+    }
+
+    int use_kalman = 0;
+    if (argc == 4 && strcmp(argv[3], "--use-kalman") == 0) {
+        use_kalman = 1;
+        fprintf(stderr, "INFO: Kalman Filter is ENABLED for noise reduction.\n");
     }
 
     FILE *acc_file = fopen(argv[1], "r");
@@ -61,6 +67,13 @@ int main(int argc, char *argv[]) {
     // Skip headers
     fgets(line, sizeof(line), acc_file);
     fgets(line, sizeof(line), gyr_file);
+
+    KalmanFilter1D kf_acc_y;
+    KalmanFilter1D kf_gyr_x;
+    if (use_kalman) {
+        kalman_init(&kf_acc_y, 0.01, 0.1, 1.0, 0.0);
+        kalman_init(&kf_gyr_x, 0.01, 0.1, 1.0, 0.0);
+    }
 
     double acc_y[WINDOW_SIZE];
     double gyr_x[WINDOW_SIZE];
@@ -88,6 +101,11 @@ int main(int argc, char *argv[]) {
         // Parse Gyroscope.csv: time,seconds_elapsed,z,y,x
         double g_time, g_sec, g_z, g_y, g_x;
         sscanf(gyr_line, "%lf,%lf,%lf,%lf,%lf", &g_time, &g_sec, &g_z, &g_y, &g_x);
+
+        if (use_kalman) {
+            a_y = kalman_update(&kf_acc_y, a_y);
+            g_x = kalman_update(&kf_gyr_x, g_x);
+        }
 
         acc_y[count] = a_y;
         gyr_x[count] = g_x;
