@@ -5,6 +5,28 @@
 
 #define WINDOW_SIZE 200
 
+// --- 1D KALMAN FILTRESI (Gürültü Azaltma İçin) ---
+typedef struct {
+    double q; // Süreç gürültüsü (Process noise)
+    double r; // Ölçüm gürültüsü (Measurement noise)
+    double x; // Tahmin edilen değer (Estimated value)
+    double p; // Tahmin hata varyansı (Estimation error covariance)
+    double k; // Kalman kazancı (Kalman gain)
+} KalmanFilter1D;
+
+void kalman_init(KalmanFilter1D *kf, double q, double r, double p, double initial_value) {
+    kf->q = q; kf->r = r; kf->p = p; kf->x = initial_value;
+}
+
+double kalman_update(KalmanFilter1D *kf, double measurement) {
+    kf->p = kf->p + kf->q; // Tahmin
+    kf->k = kf->p / (kf->p + kf->r); // Kazanç
+    kf->x = kf->x + kf->k * (measurement - kf->x); // Güncelleme
+    kf->p = (1 - kf->k) * kf->p;
+    return kf->x;
+}
+// ------------------------------------------------
+
 // Function to calculate variance
 double calculate_variance(double data[], int n) {
     if (n == 0) return 0.0;
