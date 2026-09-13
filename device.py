@@ -8,44 +8,49 @@ UDP_IP = "127.0.0.1"
 UDP_PORT = 5005
 
 print("Akilli Supurge Cihazi Baslatildi.")
-print("1. Cihazdaki sensor verileri analiz ediliyor (Edge Computing)...\n")
+print("Guc tasarrufu (Deep Sleep) ve 30 Dakikalik Periyodik Gonderim aktif...\n")
 
-# Gercek C kodunu calistir ve stderr ciktisini yakala
-result = subprocess.run(['./detector', 'test/Accelerometer.csv', 'test/Gyroscope.csv'], capture_output=True, text=True)
-output = result.stderr
+while True:
+    print(f"[{time.strftime('%H:%M:%S')}] UYANIŞ: 30 dakikalik zamanlayici (Timer) tetiklendi!")
+    print("1. Cihazdaki sensor verileri analiz ediliyor (Edge Computing)...")
 
-try:
-    clean_dist = int(float(re.search(r"2\. Gercek Temizlik Mesafesi : ([\d\.]+) metre", output).group(1)))
-    work_time = int(re.search(r"3\. Calisma \(Aktif\) Suresi   : (\d+) saniye", output).group(1))
-    wait_time = int(re.search(r"4\. Bekleme \(Bosta\) Suresi   : (\d+) saniye", output).group(1))
-    swings = int(re.search(r"5\. Toplam Supurme Hareketi  : (\d+) salinim", output).group(1))
-except Exception as e:
-    print(f"Hata: Veri analiz edilemedi. {e}")
-    exit(1)
+    # Gercek C kodunu calistir ve stderr ciktisini yakala
+    result = subprocess.run(['./detector', 'test/Accelerometer.csv', 'test/Gyroscope.csv'], capture_output=True, text=True)
+    output = result.stderr
 
-dev_id = 2603
-battery = 87 # Ornek pil yuzdesi
-status_code = 0
+    try:
+        clean_dist = int(float(re.search(r"2\. Gercek Temizlik Mesafesi : ([\d\.]+) metre", output).group(1)))
+        work_time = int(re.search(r"3\. Calisma \(Aktif\) Suresi   : (\d+) saniye", output).group(1))
+        wait_time = int(re.search(r"4\. Bekleme \(Bosta\) Suresi   : (\d+) saniye", output).group(1))
+        swings = int(re.search(r"5\. Toplam Supurme Hareketi  : (\d+) salinim", output).group(1))
+    except Exception as e:
+        print(f"Hata: Veri analiz edilemedi. {e}")
+        time.sleep(5)
+        continue
 
-print(f"2. Analiz Tamamlandi! Sonuclar:")
-print(f" - Calisma: {work_time}s, Bekleme: {wait_time}s, Salinim: {swings}, Mesafe: {clean_dist}m\n")
+    dev_id = 2603
+    battery = 87 # Ornek pil yuzdesi
+    status_code = 0
 
-# Veriyi 12 Byte (Big Endian) olarak paketle
-# >H B H H H H B
-base_payload = struct.pack('>H B H H H H B', dev_id, battery, work_time, wait_time, swings, clean_dist, status_code)
+    print(f"2. Analiz Tamamlandi! Sonuclar:")
+    print(f" - Calisma: {work_time}s, Bekleme: {wait_time}s, Salinim: {swings}, Mesafe: {clean_dist}m")
 
-# Veri Butunlugu Icin Basit CRC (Checksum) Hesaplama - XOR mantigiyla 1 Byte
-checksum = 0
-for b in base_payload:
-    checksum ^= b
+    # Veriyi 12 Byte (Big Endian) olarak paketle
+    base_payload = struct.pack('>H B H H H H B', dev_id, battery, work_time, wait_time, swings, clean_dist, status_code)
 
-# Checksum'i paketin sonuna ekle (Toplam 13 Byte)
-final_payload = base_payload + struct.pack('>B', checksum)
+    # Veri Butunlugu Icin Basit CRC (Checksum) Hesaplama - XOR mantigiyla 1 Byte
+    checksum = 0
+    for b in base_payload:
+        checksum ^= b
 
-sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    final_payload = base_payload + struct.pack('>B', checksum)
 
-print(f"3. Olusturulan 13 Byte Guvenli Payload: {final_payload.hex().upper()}")
-print(f"4. Veri LoRaWAN uzerinden gonderiliyor (Hedef: {UDP_IP}:{UDP_PORT})...")
-
-sock.sendto(final_payload, (UDP_IP, UDP_PORT))
-print("5. Gonderim Basarili! LoraMAC kuyrugundan cikarildi ve uyku moduna gecildi.")
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    print(f"3. Veri LoRaWAN uzerinden gonderiliyor (Hedef: {UDP_IP}:{UDP_PORT})...")
+    sock.sendto(final_payload, (UDP_IP, UDP_PORT))
+    
+    print("4. Gonderim Basarili! LoraMAC kuyrugundan cikarildi.")
+    print("--- CIHAZ 30 DAKIKA BOYUNCA DERIN UYKUYA (DEEP SLEEP) GECIYOR ---\n")
+    
+    # Gercek sistemde burada uykuya gecilir. Simulasyon hizli aksin diye 5 saniye bekletiyoruz.
+    time.sleep(5)
