@@ -4,6 +4,13 @@ Bu proje, manuel temizlik süreçlerini dijitalleştirmek amacıyla standart sü
 
 Sistem, hesaplamaları Uç Birimde (Edge Computing) gerçekleştirip performansı (Aktif süre, boşta bekleme, adım mesafesi, fırça darbesi) hesaplar ve 30 dakikada bir **13 Byte'lık sıkıştırılmış bir LoRaWAN paketi** olarak uzak sunucuya iletir.
 
+### 🎥 Sistem Animasyonu
+Aşağıdaki videoda, C algoritmamızın gelen sensör verilerini "Varyans" hesabıyla nasıl milisaniyeler içinde yorumladığını (Süpürme, Yürüme vb.) ve sağ üst köşede performansı nasıl saydığını canlı olarak görebilirsiniz:
+
+<video src="https://github.com/doga66/aware_robotics_task/raw/main/test_realtime_kalman.mp4" width="800" controls></video>
+
+*(Not: Eğer video açılmazsa, klasördeki `test_realtime_kalman.mp4` dosyasını doğrudan indirebilirsiniz.)*
+
 ---
 
 ## 📂 Klasör Yapısı ve Veriler
@@ -11,9 +18,8 @@ Sistem, hesaplamaları Uç Birimde (Edge Computing) gerçekleştirip performans�
 *   `detector.c`: Projenin kalbi olan ana C algoritması. Sensör verilerini saniyelik okur, varyans hesabını yapar, hareket sayımlarını (Peak Detection) gerçekleştirir ve 1D Kalman Filtresini barındırır.
 *   `device.py`: Sahadaki IoT süpürge cihazını simüle eden Python kodudur. `detector.c`'yi çalıştırıp sonuçları alır, 13 Byte'lık Hexadecimal bir Byte Array'e (Payload) dönüştürür ve UDP (LoRa radyo dalgası simülasyonu) üzerinden fırlatıp uyku moduna geçer.
 *   `server.py`: 20 km uzaklıktaki Merkezi Sunucuyu (Gateway) simüle eder. Havadan gelen UDP paketini dinler, `XOR Checksum` kontrolü yaparak verinin bozulup bozulmadığını doğrular ve Big-Endian yapısındaki paketi insan diline (Decode) çevirir.
-*   `realtime_visualize.py`: Sensör verilerinin zaman içerisindeki akışını, algoritmanın verdiği anlık kararları ve sağ üst köşede biriken performans skorlarını canlı bir MP4 animasyonu olarak oluşturur.
-*   `visualize.py`: Ham ivmeölçer ve jiroskop verilerinin durağan (static) analiz grafikleri için kullanılır.
-*   `/test/`, `/yurume_supurme/`, `/durma_supurmeme/` (vb. Klasörler): Geliştirme aşamasında referans alınan, akıllı telefondaki (Sensor Logger) gerçek IMU donanımından 100Hz hızında kaydedilmiş ham saha sensör verilerini (`Accelerometer.csv` ve `Gyroscope.csv`) barındırır.
+*   `realtime_visualize.py`: Sensör verilerinin zaman içerisindeki akışını ve algoritmanın verdiği anlık kararları canlı izlemek için kullanılır.
+*   `/test/`: C algoritmasının test edilebilmesi için gerekli olan `Accelerometer.csv` ve `Gyroscope.csv` örnek verilerini barındırır.
 
 ---
 
